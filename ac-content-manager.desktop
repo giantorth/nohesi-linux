@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AC Content Manager
+Comment=Content Manager for Assetto Corsa (also works while No Hesi Launcher runs)
+Exec=ac-content-manager
+Icon=ac-content-manager
+Categories=Game;
+StartupWMClass=assettocorsa.exe
+Terminal=false

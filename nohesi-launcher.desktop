@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=No Hesi Launcher
+Comment=No Hesi launcher for Assetto Corsa (runs in the AC Proton prefix)
+Exec=nohesi-launcher
+Icon=nohesi-launcher
+Categories=Game;
+StartupWMClass=nohesilauncher.exe
+Terminal=false

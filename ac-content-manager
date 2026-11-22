@@ -1,0 +1,19 @@
+#!/bin/bash
+# Starts Content Manager (AssettoCorsa.exe) in the Assetto Corsa Proton prefix.
+# Works while the No Hesi Launcher runs: Steam shows Assetto Corsa as running
+# then and will not start it again.
+
+HERE=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+# shellcheck source=common.sh
+. "$HERE/common.sh"
+
+load_config
+find_game
+find_proton   # the same build as nohesi-launcher, so both share one wineserver
+
+CM="$GAME/AssettoCorsa.exe"
+[ -f "$CM" ] || die "Content Manager not found at: $CM"
+
+proton_env
+cd "$GAME" || exit 1
+run_with_watch "$CM" "$@"

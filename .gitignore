@@ -1,0 +1,5 @@
+# Built by make; CI builds it for releases.
+wv2shim.exe
+wv2shim.res
+# make dist
+/nohesi-linux-*

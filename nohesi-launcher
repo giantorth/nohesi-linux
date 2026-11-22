@@ -1,0 +1,79 @@
+#!/bin/bash
+# Starts the No Hesi Launcher inside the Assetto Corsa Proton prefix (Steam app 244210).
+# Steam must be running.
+
+HERE=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+# shellcheck source=common.sh
+. "$HERE/common.sh"
+
+load_config
+find_game
+find_proton
+
+SHIM="$HERE/wv2shim.exe"
+export NOHESI_EXE="$PFX/drive_c/users/steamuser/AppData/Local/NoHesi Launcher/NoHesiLauncher.exe"
+[ -f "$NOHESI_EXE" ] || die "No Hesi Launcher not found at: $NOHESI_EXE"
+
+# WebView2's GPU process aborts under Wine: its software fallback calls
+# DCompositionCreateDevice, which Wine does not implement, and after a few
+# restarts the embedded browser quits and the window stays black. Turning off the
+# Edge feature ForceSWDCompWhenDCompFallbackRequired avoids that path.
+#
+# The launcher passes its own browser arguments, so WebView2 ignores
+# WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS and the registry policy. Instead WebView2
+# is pointed at a mirror of its runtime folder in which msedgewebview2.exe is a
+# small shim (source: wv2shim.c) that starts the real browser with
+# NOHESI_WV2_ARGS appended. The first two feature names repeat what the
+# launcher itself disables, because the last --disable-features wins.
+WV2_APP="$PFX/drive_c/Program Files (x86)/Microsoft/EdgeWebView/Application"
+WV2_VER=$(find "$WV2_APP" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null |
+    grep -E '^[0-9]+(\.[0-9]+){3}$' | sort -V | tail -1)
+MIRROR="$PFX/drive_c/nohesi-wv2"
+
+[ -n "$WV2_VER" ] || die "WebView2 runtime not found in: $WV2_APP"
+[ -f "$SHIM" ] || die "wv2shim.exe not found at: $SHIM (run make, or use a release tarball)"
+
+# Rebuild the mirror each start so it follows WebView2 runtime updates.
+mkdir -p "$MIRROR"
+find "$MIRROR" -mindepth 1 -maxdepth 1 -type l -delete
+for entry in "$WV2_APP/$WV2_VER"/*; do
+    name=${entry##*/}
+    [ "$name" = msedgewebview2.exe ] || ln -s "$entry" "$MIRROR/$name"
+done
+cp -f "$SHIM" "$MIRROR/msedgewebview2.exe"
+
+export WEBVIEW2_BROWSER_EXECUTABLE_FOLDER='C:\nohesi-wv2'
+export NOHESI_WV2_REAL="C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application\\$WV2_VER\\msedgewebview2.exe"
+export NOHESI_WV2_ARGS="${NOHESI_WV2_ARGS---disable-features=IsolateOrigins,site-per-process,ForceSWDCompWhenDCompFallbackRequired}"
+
+# Custom Shaders Patch checks its signed dwrite.dll with wintrust's
+# CryptSIPVerifyIndirectData. Wine's version is a stub that always fails, and
+# No Hesi then shows the player as "playing offline". The string below is only
+# in a wintrust.dll built with wintrust-implement-cryptsipverifyindirectdata.patch.
+if ! grep -qa 'unknown digest algorithm' "$TOOL/files/lib/wine/x86_64-windows/wintrust.dll"; then
+    warn "$TOOL has no CryptSIPVerifyIndirectData fix; No Hesi will show you as playing offline"
+fi
+
+# The launcher reads the signed-in account from the registry values that
+# Windows Steam writes. Proton's steam.exe does not write them, so copy the
+# account from the Linux Steam client's loginusers.vdf when they are missing.
+LOGIN="$STEAM/config/loginusers.vdf"
+if [ -f "$LOGIN" ]; then
+    ID64=$(awk -F'"' '/^\t"7656[0-9]+"/ {id=$2; if (!first) first=id} /"MostRecent"[\t ]+"1"/ {print id; found=1; exit} END {if (!found) print first}' "$LOGIN")
+fi
+if [ -n "$ID64" ]; then
+    ACCOUNT=$((ID64 - 76561197960265728))
+    PERSONA=$(awk -F'"' -v id="$ID64" '$2 == id {hit=1} hit && $2 == "PersonaName" {print $4; exit}' "$LOGIN")
+    if ! grep -qi "^\"ActiveUser\"=dword:$(printf '%08x' "$ACCOUNT")" "$PFX/user.reg"; then
+        WINE="$TOOL/files/bin/wine"
+        WINEPREFIX="$PFX" WINEDEBUG=-all "$WINE" reg add 'HKCU\Software\Valve\Steam\ActiveProcess' /v ActiveUser /t REG_DWORD /d "$ACCOUNT" /f >/dev/null
+        WINEPREFIX="$PFX" WINEDEBUG=-all "$WINE" reg add 'HKCU\Software\Valve\Steam' /v LastGameNameUsed /d "$PERSONA" /f >/dev/null
+        WINEPREFIX="$PFX" "${WINE}server" -w
+    fi
+fi
+
+# Start through Proton itself with Assetto Corsa's app ID. Proton then runs its
+# steam.exe bridge in the prefix, so the launcher sees Steam as running and
+# Steamworks reaches the real Steam client.
+proton_env
+run_with_watch "$NOHESI_EXE" "$@"
