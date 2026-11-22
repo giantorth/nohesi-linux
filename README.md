@@ -46,9 +46,17 @@ protontricks --no-bwrap -c '
   wine reg add "HKCU\\Software\\Wine\\AppDefaults\\NoHesiLauncher.exe" /v Version /d win11 /f' 244210
 
 # WebView2 Evergreen Standalone runtime (x64), from Microsoft
+curl -Lo MicrosoftEdgeWebView2RuntimeInstallerX64.exe \
+  'https://go.microsoft.com/fwlink/?linkid=2124701'
 protontricks --no-bwrap -c \
   'wine MicrosoftEdgeWebView2RuntimeInstallerX64.exe /silent /install' 244210
 ```
+
+The No Hesi Launcher draws its window with WebView2, so it needs the Windows
+WebView2 runtime inside the prefix. The `curl` line downloads Microsoft's
+Evergreen Standalone x64 installer. It is also on the
+[WebView2 download page](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
+under "Evergreen Standalone Installer", x64. Content Manager does not use this.
 
 ### 2. Install nohesi-linux
 
