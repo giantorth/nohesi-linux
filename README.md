@@ -126,6 +126,10 @@ Other variables: `STEAM_DIR` (Steam folder), `NOHESI_WV2_ARGS` (see
   prefix, and the Proton build that last ran the prefix (from the prefix's
   `config_info`). The launcher warns if that build's `wintrust.dll` lacks the
   fix.
+- Pass every Steam library to Proton in `STEAM_COMPAT_LIBRARY_PATHS`. Proton
+  writes the prefix's `C:\Program Files (x86)\Steam\steamapps\libraryfolders.vdf`
+  from it on each start, and the No Hesi Launcher looks for Assetto Corsa
+  there. Without it the file lists only the Steam folder.
 - Unset `DOTNET_BUNDLE_EXTRACT_BASE_DIR`, `DOTNET_ROOT` and `DOTNET_TOOLS_PATH`.
   The Linux .NET SDK sets them and the launcher exits with code 1 if it
   inherits them.

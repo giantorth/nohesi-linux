@@ -46,6 +46,13 @@ find_game() {
     [ -d "$COMPAT/pfx" ] || die "Assetto Corsa's Proton prefix not found. Start Assetto Corsa from Steam once."
     PFX="$COMPAT/pfx"
     GAME="$lib/steamapps/common/assettocorsa"
+
+    # The steamapps folder of every library except the Steam folder,
+    # colon-separated, for STEAM_COMPAT_LIBRARY_PATHS.
+    LIBS=
+    while IFS= read -r d; do
+        [ "$(readlink -f "$d")" = "$(readlink -f "$STEAM")" ] || LIBS+="${LIBS:+:}$d/steamapps"
+    done < <(awk -F'"' '$2 == "path" {print $4}' "$STEAM/steamapps/libraryfolders.vdf" 2>/dev/null)
 }
 
 # Sets TOOL and PROTON to the Proton build that last ran the prefix, so every
@@ -69,6 +76,11 @@ proton_env() {
     unset DOTNET_BUNDLE_EXTRACT_BASE_DIR DOTNET_ROOT DOTNET_TOOLS_PATH
 
     export STEAM_COMPAT_CLIENT_INSTALL_PATH="$STEAM"
+    # Proton's steam.exe rewrites C:\Program Files (x86)\Steam\steamapps\
+    # libraryfolders.vdf on each start: the Steam folder, then the parent of
+    # each steamapps folder in STEAM_COMPAT_LIBRARY_PATHS. Without that list the
+    # No Hesi Launcher does not find Assetto Corsa in another library.
+    [ -z "$LIBS" ] || export STEAM_COMPAT_LIBRARY_PATHS="$LIBS"
     export STEAM_COMPAT_DATA_PATH="$COMPAT"
     export SteamAppId="$APPID" SteamGameId="$APPID" STEAM_COMPAT_APP_ID="$APPID"
 
